@@ -1,2 +1,5 @@
-# arden
-Compliance 
+## 📁 Project Directory Structure
+
+arden/ 
+├── app/ 
+│ ├── init.py │ ├── main.py # FastAPI entrypoint │ ├── api/ # API routes │ │ ├── init.py │ │ └── routes.py │ ├── services/ # Core logic │ │ ├── init.py │ │ ├── rag.py # Vector search + retrieval logic │ │ ├── llm.py # LLM interaction (HuggingFace, local model, etc.) │ │ ├── compliance.py # Compliance analysis & scoring logic │ ├── models/ # Pydantic schemas │ │ ├── init.py │ │ └── schemas.py │ ├── vectorstore/ # Vector DB setup (FAISS / Chroma) │ │ └── index.py │ └── utils/ # Text parsing, splitting, cleaning │ └── helpers.py │ ├── data/ │ ├── contracts/ # Uploaded contract examples │ ├── compliance/ # Regulatory documents │ ├── scripts/ │ ├── ingest_docs.py # Script to index compliance docs into vector DB │ ├── .env # Environment variables ├── requirements.txt # Python dependencies ├── Dockerfile # Docker setup for API ├── docker-compose.yml # Spins up FastAPI + Vector DB ├── README.md # Project overview and instructions └── .gitignore # Files to exclude from Git
