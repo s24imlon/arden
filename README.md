@@ -1,3 +1,6 @@
+# Project Structure
+
+```
 arden/
 ├── app/
 │   ├── __init__.py
@@ -31,3 +34,4 @@ arden/
 ├── docker-compose.yml          # Vector DB + Backend services
 ├── README.md
 └── .gitignore
+```
