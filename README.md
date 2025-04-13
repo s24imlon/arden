@@ -1,5 +1,33 @@
-## 📁 Project Directory Structure
-
-arden/ 
-├── app/ 
-│ ├── init.py │ ├── main.py # FastAPI entrypoint │ ├── api/ # API routes │ │ ├── init.py │ │ └── routes.py │ ├── services/ # Core logic │ │ ├── init.py │ │ ├── rag.py # Vector search + retrieval logic │ │ ├── llm.py # LLM interaction (HuggingFace, local model, etc.) │ │ ├── compliance.py # Compliance analysis & scoring logic │ ├── models/ # Pydantic schemas │ │ ├── init.py │ │ └── schemas.py │ ├── vectorstore/ # Vector DB setup (FAISS / Chroma) │ │ └── index.py │ └── utils/ # Text parsing, splitting, cleaning │ └── helpers.py │ ├── data/ │ ├── contracts/ # Uploaded contract examples │ ├── compliance/ # Regulatory documents │ ├── scripts/ │ ├── ingest_docs.py # Script to index compliance docs into vector DB │ ├── .env # Environment variables ├── requirements.txt # Python dependencies ├── Dockerfile # Docker setup for API ├── docker-compose.yml # Spins up FastAPI + Vector DB ├── README.md # Project overview and instructions └── .gitignore # Files to exclude from Git
+arden/
+├── app/
+│   ├── __init__.py
+│   ├── main.py                 # FastAPI entrypoint
+│   ├── api/                    # API routes
+│   │   ├── __init__.py
+│   │   └── routes.py
+│   ├── services/               # Core logic
+│   │   ├── __init__.py
+│   │   ├── rag.py              # Vector search + retrieval logic
+│   │   ├── llm.py              # Call to LLM (e.g., HuggingFace)
+│   │   ├── compliance.py       # Analysis functions, scoring, etc.
+│   ├── models/                 # Pydantic models for request/response
+│   │   ├── __init__.py
+│   │   └── schemas.py
+│   ├── vectorstore/            # Vector DB setup (FAISS / Chroma)
+│   │   └── index.py
+│   └── utils/                  # Text splitting, cleaning, parsing, etc.
+│       └── helpers.py
+│
+├── data/
+│   ├── contracts/              # Uploaded contract examples
+│   ├── compliance/             # Uploaded or referenced regulations
+│
+├── scripts/
+│   ├── ingest_docs.py          # CLI script to embed and index docs
+│
+├── .env                        # Environment variables
+├── requirements.txt            # Python dependencies
+├── Dockerfile                  # Docker container for backend
+├── docker-compose.yml          # Vector DB + Backend services
+├── README.md
+└── .gitignore
