@@ -1,0 +1,19 @@
+services:
+  backend:
+    build: .
+    container_name: arden-backend
+    ports:
+      - "8000:8000"   # Map local port 8000 to container port 8000
+    volumes:
+      - .:/app         # Mount the current directory to /app inside the container
+    environment:
+      - PYTHONUNBUFFERED=1  # To prevent buffering in the logs
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  # Uncomment below if you're using a vector DB (e.g., FAISS/Chroma)
+  # vectorstore:
+  #   image: faiss:latest
+  #   ports:
+  #     - "5000:5000"
+  #   environment:
+  #     - VECTOR_DB_ENV=production
