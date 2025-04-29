@@ -1,4 +1,34 @@
 services:
+  weaviate:
+    image: semitechnologies/weaviate:1.23.4
+    container_name: arden-weaviate
+    ports:
+      - "8080:8080"
+    environment:
+      QUERY_DEFAULTS_LIMIT: 20
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'  # Disable auth for development
+      DEFAULT_VECTORIZER_MODULE: 'none'  # We'll handle embeddings in Python
+      CLUSTER_HOSTNAME: 'node1'  # Single-node setup
+      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
+      ENABLE_MODULES: ''
+      DISK_USE_WARNING_PERCENTAGE: '98' # Prevents early write errors
+      DISABLE_TELEMETRY: 'true'
+      LOG_LEVEL: 'info'
+    volumes:
+      - ./weaviate_data:/var/lib/weaviate  # Persists data locally
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/v1/.well-known/ready || exit 1"]
+      interval: 15s
+      timeout: 60s
+      retries: 6
+      start_period: 45s
+    deploy:  # Added resource limits
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+
   backend:
     build: .
     container_name: arden-backend
@@ -6,14 +36,23 @@ services:
       - "8000:8000"   # Map local port 8000 to container port 8000
     volumes:
       - .:/app         # Mount the current directory to /app inside the container
+      - ./data:/app/data  # Explicitly mount data folder
     environment:
       - PYTHONUNBUFFERED=1  # To prevent buffering in the logs
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+      - WEAVIATE_URL=http://weaviate:8080  # Internal DNS for service discovery
+      - EMBEDDING_MODEL=all-MiniLM-L6-v2  # Embedding model for legal text
+      - PYTHONPATH=/app
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 2G
+    depends_on:
+      weaviate:
+        condition: service_healthy # service started  # Wait for Weaviate to be ready
+    command: >
+      sh -c "python scripts/ingest_docs.py &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
 
-  # Uncomment below if you're using a vector DB (e.g., FAISS/Chroma)
-  # vectorstore:
-  #   image: faiss:latest
-  #   ports:
-  #     - "5000:5000"
-  #   environment:
-  #     - VECTOR_DB_ENV=production
+volumes:
+  weaviate_data:  # Named volume declaration
