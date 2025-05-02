@@ -119,6 +119,7 @@ def clean_text(text: str) -> str:
     # Replace legal document artifacts
     replacements = {
         '“': '"', '”': '"', '‘': "'", '’': "'",
+        '":': '"', '":': '"', '': "'", '': "'",
         '–': '-', '—': '-', '§': 'Section',
         '\xa0': ' ', '\xad': '', '\u202f': ' '
     }

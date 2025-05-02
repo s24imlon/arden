@@ -31,11 +31,12 @@ class VectorStore:
             os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
         )
         self._executor = ThreadPoolExecutor(max_workers=4)
-        self._create_schema(force=False)
+        self._create_schema("ComplianceClause", force=False)
+        self._create_schema("ContractClause", force=False)
 
-    def _create_schema(self, force=False):
+    def _create_schema(self, class_name, force=False):
         schema = {
-            "class": "ComplianceClause",
+            "class": class_name,
             "vectorizer": "none",
             "vectorIndexType": "hnsw",
             "vectorIndexConfig": {
@@ -51,12 +52,12 @@ class VectorStore:
 
         if force:
             try:
-                self.client.schema.delete_class("ComplianceClause")
+                self.client.schema.delete_class(class_name)
             except:
                 pass
             self.client.schema.create_class(schema)
 
-    def batch_store(self, objects: List[dict]):
+    def batch_store(self, objects: List[dict], class_name="ComplianceClause"):
         if not objects:
             return
 
@@ -77,7 +78,7 @@ class VectorStore:
                 for obj, vector, _uuid in zip(objects, vectors, uuids):
                     batch.add_data_object(
                         data_object=obj,
-                        class_name="ComplianceClause",
+                        class_name=class_name,
                         uuid=_uuid,
                         vector=vector
                     )
@@ -86,7 +87,7 @@ class VectorStore:
             if not successful_ids:
                 raise RuntimeError("Batch upload failed — no objects stored!")
 
-            self._verify_vectors(successful_ids)
+            self._verify_vectors(successful_ids, class_name)
 
         except Exception as e:
             logging.error(f"Batch store failed: {str(e)}")
@@ -99,10 +100,10 @@ class VectorStore:
                 logging.error(f"Weaviate error: {error['message']}")
             raise RuntimeError("Batch operation failed")
 
-    def _verify_vectors(self, ids: List[str]):
+    def _verify_vectors(self, ids: List[str], class_name):
         """Verify vectors were stored"""
         results = self.client.query.get(
-            "ComplianceClause",
+            class_name,
             []
         ).with_additional(["id", "vector"]).with_where({
             "path": ["id"],
@@ -110,14 +111,14 @@ class VectorStore:
             "valueStringArray": ids
         }).do()
 
-        for obj in results["data"]["Get"]["ComplianceClause"]:
+        for obj in results["data"]["Get"][class_name]:
             if not obj["_additional"]["vector"]:
                 raise RuntimeError(f"Vector missing for {obj['_additional']['id']}")
 
-    def search(self, query: str, limit: int = 10):
+    def search(self, query: str, limit: int = 10, class_name="ComplianceClause"):
         vector = self.encoder.encode(query).tolist()
         return self.client.query.get(
-            "ComplianceClause",
+            class_name,
             ["text", "doc_type", "section"]
         ).with_additional(["distance"]).with_near_vector({
             "vector": vector,

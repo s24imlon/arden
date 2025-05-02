@@ -83,7 +83,9 @@ async def _process_upload(file: UploadFile, vs: VectorStore, doc_type: str):
             **metadata
         } for i, (chunk, metadata) in enumerate(chunks)]
 
-        vs.batch_store(batch_objects)
+        # Assign the correct class based on doc_type
+        class_name = "ContractClause" if doc_type == "contract" else "ComplianceClause"
+        vs.batch_store(batch_objects, class_name=class_name)
 
         return JSONResponse(
             content={
