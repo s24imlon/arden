@@ -62,6 +62,9 @@ class VectorStore:
             return
 
         uuids = [str(uuid.uuid4()) for _ in objects]
+        for obj in objects:
+            if isinstance(obj["text"], list):  # OR: any weird pattern
+                logging.info("MALFORMED TEXT DETECTED:", obj["text"])
 
         try:
             vectors = list(self._executor.map(

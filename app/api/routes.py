@@ -75,6 +75,8 @@ async def _process_upload(file: UploadFile, vs: VectorStore, doc_type: str):
         # Process and store
         text = clean_text(read_document(file_path))
         chunks = chunk_text(text, doc_type)
+        assert all(isinstance(c, tuple) and isinstance(c[0], str) and isinstance(c[1], dict) for c in chunks), \
+            f"Malformed chunks: {chunks[:1]}"
 
         batch_objects = [{
             "text": chunk,

@@ -66,3 +66,5 @@ Thumbs.db
 .coverage
 htmlcov/
 .pytest_cache/
+
+reset_and_try.sh
