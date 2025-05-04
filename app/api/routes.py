@@ -37,7 +37,7 @@ async def get_vector_store():
 async def upload_regulation(
     file: UploadFile = File(...),
     vs: VectorStore = Depends(get_vector_store),
-    token: str = Depends(security)
+    #token: str = Depends(security)
 ):
     """Upload compliance document (GDPR, CCPA, etc.)"""
     return await _process_upload(file, vs, "compliance")
@@ -46,7 +46,7 @@ async def upload_regulation(
 async def upload_contract(
     file: UploadFile = File(...),
     vs: VectorStore = Depends(get_vector_store),
-    token: str = Depends(security)
+    #token: str = Depends(security)
 ):
     """Upload contract document"""
     return await _process_upload(file, vs, "contract")
@@ -111,7 +111,7 @@ async def _process_upload(file: UploadFile, vs: VectorStore, doc_type: str):
 @router.get("/clauses")
 async def get_clauses(
     query: str = Query("", min_length=1, max_length=100),
-    doc_type: Optional[str] = Query(None, regex="^(contracts|compliance|regulation)$"),
+    doc_type: Optional[str] = Query(None, regex="^(contracts|compliance)$"),
     limit: int = Query(10, gt=0, le=100),
     vs: VectorStore = Depends(get_vector_store)
 ):
@@ -120,7 +120,7 @@ async def get_clauses(
         # Vector search
         search_params = {
             "limit": limit,
-            "certainty": 0.65  # Tuned threshold
+            "certainty": 0.55  # Tuned threshold
         }
 
         if query:

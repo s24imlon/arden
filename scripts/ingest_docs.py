@@ -24,9 +24,6 @@ def process_file(filepath: str, doc_type: str, vs: VectorStore) -> int:
         try:
             # Read file
             text = _read_pdf(filepath) if filepath.endswith(".pdf") else _read_docx(filepath)
-            logging.info(f'test is {text}')
-            logging.info(f"Raw text repr: {repr(text)}")
-
 
             # Chunk and prepare batches
             chunks = chunk_text(text, doc_type=doc_type, method="legal_headers")

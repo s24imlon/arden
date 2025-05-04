@@ -62,46 +62,60 @@ class VectorStore:
             return
 
         uuids = [str(uuid.uuid4()) for _ in objects]
+
+        # Generate vectors
+        vectors = []
         for obj in objects:
-            if isinstance(obj["text"], list):  # OR: any weird pattern
-                logging.info("MALFORMED TEXT DETECTED:", obj["text"])
+            if isinstance(obj["text"], list):
+                logging.warning(f"Malformed text detected: {obj['text']}")
+                text = " ".join(obj["text"])  # Convert list to string
+            else:
+                text = obj["text"]
 
-        try:
-            vectors = list(self._executor.map(
-                lambda obj: self.encoder.encode(obj["text"]).tolist(),
-                objects
-            ))
+            vector = self.encoder.encode(text).tolist()
+            vectors.append(vector)
 
-            successful_ids = []
-            with self.client.batch(
-                batch_size=50,
-                dynamic=True,
-                callback=self._handle_batch_errors
-            ) as batch:
-                for obj, vector, _uuid in zip(objects, vectors, uuids):
-                    batch.add_data_object(
-                        data_object=obj,
-                        class_name=class_name,
-                        uuid=_uuid,
-                        vector=vector
-                    )
-                    successful_ids.append(_uuid)
+        logging.info(f"Generated {len(vectors)} vectors")
+        logging.info(f"Sample vector length: {len(vectors[0])}")  # Should be 384 for all-MiniLM-L6-v2
+        logging.info(f"Sample vector sum: {sum(vectors[0])}")
 
-            if not successful_ids:
-                raise RuntimeError("Batch upload failed — no objects stored!")
+        # Batch upload with verification
+        successful_ids = []
+        with self.client.batch(
+            batch_size=1,
+            dynamic=False,
+            callback=self._handle_batch_errors
+        ) as batch:
+            for obj, vector, _uuid in zip(objects, vectors, uuids):
+                batch.add_data_object(
+                    data_object=obj,
+                    class_name=class_name,
+                    uuid=_uuid,
+                    vector=vector  # Ensure this is included
+                )
+                successful_ids.append(_uuid)
 
-            self._verify_vectors(successful_ids, class_name)
+        # Immediate verification
+        for _uuid in successful_ids:
+            obj = self.client.data_object.get_by_id(
+                _uuid,
+                class_name=class_name,
+                with_vector=True  # Important!
+            )
+            if not obj or "vector" not in obj:
+                raise RuntimeError(f"Vector not attached to object {_uuid}")
 
-        except Exception as e:
-            logging.error(f"Batch store failed: {str(e)}")
-            raise
+        return successful_ids
 
-    def _handle_batch_errors(self, results):
-        """Handle Weaviate batch errors"""
-        if results and 'errors' in results:
-            for error in results['errors']:
-                logging.error(f"Weaviate error: {error['message']}")
-            raise RuntimeError("Batch operation failed")
+    def _handle_batch_errors(self, results, *args):
+        """Handle batch errors with proper signature for Weaviate 1.23.4"""
+        if results is not None:
+            for result in results:
+                if 'errors' in result.get('result', {}):
+                    error = result['result']['errors']['error'][0]
+                    logging.error(f"Batch error: {error}")
+                elif 'status' in result and result['status'] != 'SUCCESS':
+                    logging.error(f"Batch status failure: {result}")
 
     def _verify_vectors(self, ids: List[str], class_name):
         """Verify vectors were stored"""
@@ -125,7 +139,7 @@ class VectorStore:
             ["text", "doc_type", "section"]
         ).with_additional(["distance"]).with_near_vector({
             "vector": vector,
-            "certainty": 0.7
+            "certainty": 0.55
         }).with_limit(limit).do()
 
     def __del__(self):

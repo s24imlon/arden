@@ -68,3 +68,4 @@ htmlcov/
 .pytest_cache/
 
 reset_and_try.sh
+test_contract.docx
