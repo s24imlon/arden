@@ -22,26 +22,40 @@ st.set_page_config(
     page_icon="🧠"
 )
 
-# Custom CSS for better visuals
+# Custom CSS with FIXED TEXT COLOR - forcing black text everywhere
 st.markdown("""
 <style>
-    .stTextArea [data-baseweb=base-input] {
-        background-color: #f8f9fa;
+    /* Force dark background on text areas */
+    .stTextArea textarea {
+        color: black !important;
+        background-color: #e0e0e0 !important;
     }
-    .reportview-container .main .block-container {
-        padding-top: 2rem;
+
+    /* Force black text on all elements */
+    p, h1, h2, h3, h4, h5, h6, span, div, textarea, .stTextArea, .stText, .stMarkdown {
+        color: black !important;
     }
-    .stMarkdown p, .stText, .stAlert {
-        color: #000000 !important;
+
+    /* Ensure text inside expanders is black */
+    .streamlit-expanderHeader, .streamlit-expanderContent {
+        color: black !important;
     }
-    textarea[disabled] {
-        color: #000000 !important;
+
+    /* Higher contrast for disabled elements */
+    textarea[disabled], textarea:disabled {
+        color: black !important;
+        background-color: #d0d0d0 !important;
+        opacity: 1 !important;
     }
-    .st-ae {
-        color: #000000 !important;
+
+    /* Ensure all st elements have black text */
+    [data-testid="stText"] *, [data-testid="stMarkdown"] *, [data-testid="stTextArea"] * {
+        color: black !important;
     }
-    .st-b7 {
-        color: #000000 !important;
+
+    /* Fix for specific Streamlit components */
+    .stTextInput > div > div > input {
+        color: black !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -102,6 +116,7 @@ def analyze_contract(doc_id: str) -> Dict:
             logger.error("Invalid response format from analysis endpoint")
             return {"error": "Invalid response format"}
 
+        logger.info(f"Raw analysis response: {json.dumps(response_data)}")
         return response_data
 
     except requests.exceptions.RequestException as e:
@@ -118,60 +133,90 @@ def display_results(results: Dict) -> None:
         st.warning("No results to display")
         return
 
-    # Debug view (temporary)
-    if st.checkbox("Show raw API response"):
-        st.json(results)
+    # Debug view in a collapsible section
+    with st.expander("Show raw API response", expanded=False):
+        st.code(json.dumps(results, indent=2), language="json")
 
-    if not results.get("results"):
-        st.warning("No analysis results found")
+    if "error" in results:
+        st.error(f"Analysis error: {results['error']}")
         return
 
-    for result in results["results"]:
-        with st.expander(f"🔍 Clause Analysis - Section: {result.get('section', 'N/A')}", expanded=True):
+    # Check if we have results to display
+    if not results.get("results"):
+        st.warning("No analysis results found in the response")
+        return
+
+    # Display each result
+    for i, result in enumerate(results["results"]):
+        with st.expander(f"🔍 Clause Analysis #{i+1}", expanded=True):
+            # Force contrast for text
+            st.markdown("""
+            <style>
+            .clause-text {
+                color: black !important;
+                background-color: #e0e0e0 !important;
+                padding: 10px;
+                border-radius: 5px;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+
             col1, col2 = st.columns([1, 1])
 
             with col1:
                 st.subheader("📜 Contract Clause")
+                # Use a div with custom class and style for better visibility
+                clause_text = result.get('clause_text', 'No text available')
+                st.markdown(f'<div class="clause-text">{clause_text}</div>', unsafe_allow_html=True)
+
+                # Add a backup text area with forced styling
                 st.text_area(
-                    label="Contract Text",
-                    value=result.get('clause_text', 'No text available'),
+                    label="Contract Text (Backup View)",
+                    value=clause_text,
                     height=200,
-                    disabled=True,
-                    label_visibility="collapsed"
+                    key=f"clause_text_{i}"
                 )
 
             with col2:
-                analysis = result.get("analysis", {})
+                # NEW: Handle the NESTED structure based on your raw response
+                analysis_data = result.get("analysis", {})
 
-                # Handle cases where analysis might be a string
-                if isinstance(analysis, str):
-                    try:
-                        analysis = json.loads(analysis)
-                    except json.JSONDecodeError:
-                        analysis = {"error": "Invalid analysis format"}
-
-                # Status display
-                status = analysis.get("compliance_status", "Unknown")
-                if status.lower() == "compliant":
-                    st.success(f"✅ Status: {status}")
-                elif status.lower() == "non-compliant":
-                    st.error(f"❌ Status: {status}")
+                # If there's a nested "analysis" field, use that
+                if isinstance(analysis_data, dict) and "analysis" in analysis_data:
+                    actual_analysis = analysis_data["analysis"]
                 else:
-                    st.warning(f"⚠️ Status: {status}")
+                    actual_analysis = analysis_data
 
-                # Violations
-                if analysis.get("violated_articles"):
+                # Extract compliance status
+                compliance_status = "Unknown"
+                if isinstance(actual_analysis, dict):
+                    compliance_status = actual_analysis.get("compliance_status", "Unknown")
+
+                # Display status with appropriate color
+                if compliance_status.lower() == "compliant":
+                    st.success(f"✅ Status: {compliance_status}")
+                elif compliance_status.lower() == "non-compliant":
+                    st.error(f"❌ Status: {compliance_status}")
+                else:
+                    st.warning(f"⚠️ Status: {compliance_status}")
+
+                # Extract matched regulations if present
+                if isinstance(analysis_data, dict) and "matched_regulations" in analysis_data:
+                    st.subheader("📋 Matched Regulations")
+                    for regulation in analysis_data["matched_regulations"]:
+                        st.markdown(f"- {regulation}")
+
+                # Extract violations
+                if isinstance(actual_analysis, dict) and "violated_articles" in actual_analysis:
                     st.subheader("🚨 Violated Regulations")
-                    for violation in analysis["violated_articles"]:
-                        if isinstance(violation, str):
-                            st.markdown(f"- {violation}")
+                    for violation in actual_analysis["violated_articles"]:
+                        st.markdown(f"- {violation}")
 
-                # Required changes
-                if analysis.get("required_changes"):
+                # Extract required changes
+                if isinstance(actual_analysis, dict) and "required_changes" in actual_analysis:
                     st.subheader("🔧 Required Changes")
-                    for change in analysis["required_changes"]:
-                        if isinstance(change, str):
-                            st.markdown(f"- {change}")
+                    for change in actual_analysis["required_changes"]:
+                        st.markdown(f"- {change}")
 
 def main():
     st.title("🧠 Arden : AI-Powered Contract Watchdog")
@@ -190,20 +235,36 @@ def main():
         # Display file info
         st.info(f"File type: {uploaded_file.type}, Size: {uploaded_file.size/1024:.2f} KB")
 
-        if st.button("Analyze Document", key="analyze_file"):
-            with st.spinner("Uploading and analyzing document..."):
-                # Step 1: Upload the file
-                upload_result = upload_file_to_backend(uploaded_file)
+        analyze_button = st.button("Analyze Document", key="analyze_file", use_container_width=True)
 
-                if "error" in upload_result:
-                    st.error(f"Upload failed: {upload_result['error']}")
-                else:
-                    doc_id = upload_result.get("document_id")
-                    st.success(f"Document uploaded successfully (ID: {doc_id})")
+        if analyze_button:
+            # Create a placeholder for status updates
+            status_placeholder = st.empty()
+            results_container = st.container()
 
-                    # Step 2: Analyze the document
-                    with st.spinner("Analyzing content..."):
-                        analysis_results = analyze_contract(doc_id)
+            # Step 1: Upload the file
+            status_placeholder.info("Step 1/2: Uploading document...")
+            upload_result = upload_file_to_backend(uploaded_file)
+
+            if "error" in upload_result:
+                status_placeholder.error(f"Upload failed: {upload_result['error']}")
+            else:
+                doc_id = upload_result.get("document_id")
+                status_placeholder.success(f"✅ Document uploaded successfully (ID: {doc_id})")
+
+                # Step 2: Analyze the document
+                status_placeholder.info("Step 2/2: Analyzing content...")
+                analysis_results = analyze_contract(doc_id)
+
+                # Clear status and show results
+                status_placeholder.empty()
+
+                with results_container:
+                    st.header("📊 Analysis Results")
+                    if "error" in analysis_results:
+                        st.error(f"Analysis failed: {analysis_results['error']}")
+                    else:
+                        st.success("Analysis completed successfully!")
                         display_results(analysis_results)
 
 if __name__ == "__main__":
