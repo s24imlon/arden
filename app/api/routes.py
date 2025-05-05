@@ -51,11 +51,11 @@ class TextUploadRequest(BaseModel):
 
 @router.post("/upload-contract")
 async def upload_contract(
-    file: UploadFile = File(None),  # Make file optional
-    text: str = Form(None),        # Add text form field
+    file: UploadFile = File(None),
+    text: str = Form(None),
     vs: VectorStore = Depends(get_vector_store)
 ):
-    """Handle both file and direct text uploads"""
+    """Handle both file and text uploads"""
     try:
         if file:
             # Process file upload
@@ -84,7 +84,6 @@ async def upload_contract(
             )
         else:
             raise HTTPException(status_code=422, detail="Either file or text must be provided")
-
     except Exception as e:
         logger.error(f"Upload failed: {str(e)}")
         raise HTTPException(status_code=500, detail="Document processing failed")
