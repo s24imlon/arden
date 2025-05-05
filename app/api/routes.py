@@ -16,6 +16,8 @@ import os
 from typing import Optional
 import logging
 from fastapi.security import HTTPBearer
+from fastapi import Form
+from pydantic import BaseModel
 
 router = APIRouter()
 security = HTTPBearer()
@@ -44,14 +46,48 @@ async def upload_regulation(
     """Upload compliance document (GDPR, CCPA, etc.)"""
     return await _process_upload(file, vs, "compliance")
 
+class TextUploadRequest(BaseModel):
+    text: str
+
 @router.post("/upload-contract")
 async def upload_contract(
-    file: UploadFile = File(...),
-    vs: VectorStore = Depends(get_vector_store),
-    #token: str = Depends(security)
+    file: UploadFile = File(None),
+    text: str = Form(None),
+    vs: VectorStore = Depends(get_vector_store)
 ):
-    """Upload contract document"""
-    return await _process_upload(file, vs, "contract")
+    """Handle both file and text uploads"""
+    try:
+        if file:
+            # Process file upload
+            return await _process_upload(file, vs, "contract")
+        elif text:
+            # Process direct text
+            file_id = str(uuid.uuid4())
+            chunks = chunk_text(text, "contract")
+
+            batch_objects = [{
+                "text": chunk,
+                "doc_type": "contract",
+                "section": f"upload_{file_id[:8]}_{i}",
+                **metadata
+            } for i, (chunk, metadata) in enumerate(chunks)]
+
+            vs.batch_store(batch_objects, class_name="ContractClause")
+
+            return JSONResponse(
+                content={
+                    "status": "success",
+                    "chunks_ingested": len(batch_objects),
+                    "document_id": file_id
+                },
+                status_code=201
+            )
+        else:
+            raise HTTPException(status_code=422, detail="Either file or text must be provided")
+    except Exception as e:
+        logger.error(f"Upload failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Document processing failed")
+
 
 async def _process_upload(file: UploadFile, vs: VectorStore, doc_type: str):
     """Shared upload processing with enhanced validation"""
@@ -70,6 +106,7 @@ async def _process_upload(file: UploadFile, vs: VectorStore, doc_type: str):
         # Secure save with unique filename
         file_id = str(uuid.uuid4())
         file_path = UPLOAD_DIR / f"{file_id}{file_ext}"
+        logger.info(f"Saving uploaded file to: {file_path.absolute()}")
 
         with file_path.open("wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
