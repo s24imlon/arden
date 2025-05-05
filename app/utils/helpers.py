@@ -61,8 +61,8 @@ def chunk_text(text: str, doc_type: str, method: str = "default") -> List[Tuple[
     if method == "legal_headers":
         sections = legal_headers_splitter(text)
         return [
-            (section, {"type": doc_type, "chunk_method": "legal_headers"})
-            for section in sections if section.strip()
+            (str(section), {"type": doc_type, "chunk_method": "legal_headers"})
+            for section in sections if str(section).strip()
         ]
     else:
         # Default recursive splitting
@@ -169,7 +169,7 @@ def legal_headers_splitter(text: str) -> List[str]:
     # Corrected regex pattern (added missing parenthesis)
     pattern = r'\n+(?:SECTION|Article|Clause)\s+[IVXLCDM0-9]+\.?\s*\n+'
     sections = re.split(pattern, text)
-
+    assert all(isinstance(s, str) for s in sections), "Non-string section detected"
     return [s for s in sections if s.strip()]
 
 def validate_file_extension(extension: str, allowed: set):

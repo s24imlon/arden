@@ -48,7 +48,9 @@ def process_file(filepath: str, doc_type: str, vs: VectorStore) -> int:
             # Store all batches
             total = 0
             for batch in batches:
-                vs.batch_store(batch)
+                # Assign class based on doc_type
+                class_name = "ContractClause" if doc_type.lower() == "contract" else "ComplianceClause"
+                vs.batch_store(batch, class_name=class_name)
                 total += len(batch)
 
             return total
@@ -65,10 +67,10 @@ def process_file(filepath: str, doc_type: str, vs: VectorStore) -> int:
 def batch_ingest():
     """Main ingestion pipeline with comprehensive error handling"""
     vs = VectorStore()
-    files = get_documents_from_folder("contracts")
+    files = get_documents_from_folder("compliance")
 
     if not files:
-        logger.warning("No documents found in contracts folder")
+        logger.warning("No documents found in compliance folder")
         return
 
     total_chunks = 0

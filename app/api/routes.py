@@ -7,6 +7,8 @@ from app.utils.helpers import (
     clean_text,
     validate_file_extension
 )
+from app.services.rag_service import RAGService
+from app.models.schemas import AnalysisRequest
 from pathlib import Path
 import shutil
 import uuid
@@ -37,7 +39,7 @@ async def get_vector_store():
 async def upload_regulation(
     file: UploadFile = File(...),
     vs: VectorStore = Depends(get_vector_store),
-    token: str = Depends(security)
+    #token: str = Depends(security)
 ):
     """Upload compliance document (GDPR, CCPA, etc.)"""
     return await _process_upload(file, vs, "compliance")
@@ -46,7 +48,7 @@ async def upload_regulation(
 async def upload_contract(
     file: UploadFile = File(...),
     vs: VectorStore = Depends(get_vector_store),
-    token: str = Depends(security)
+    #token: str = Depends(security)
 ):
     """Upload contract document"""
     return await _process_upload(file, vs, "contract")
@@ -75,6 +77,12 @@ async def _process_upload(file: UploadFile, vs: VectorStore, doc_type: str):
         # Process and store
         text = clean_text(read_document(file_path))
         chunks = chunk_text(text, doc_type)
+        logging.info(f"Generated {len(chunks)} chunks for {doc_type}")
+        for i, (chunk, meta) in enumerate(chunks[:3]):  # Print first 3 chunks
+            logging.info(f"Chunk {i}: {chunk[:50]}... | Meta: {meta}")
+
+        assert all(isinstance(c, tuple) and isinstance(c[0], str) and isinstance(c[1], dict) for c in chunks), \
+            f"Malformed chunks: {chunks[:1]}"
 
         batch_objects = [{
             "text": chunk,
@@ -83,7 +91,9 @@ async def _process_upload(file: UploadFile, vs: VectorStore, doc_type: str):
             **metadata
         } for i, (chunk, metadata) in enumerate(chunks)]
 
-        vs.batch_store(batch_objects)
+        # Assign the correct class based on doc_type
+        class_name = "ContractClause" if doc_type == "contract" else "ComplianceClause"
+        vs.batch_store(batch_objects, class_name=class_name)
 
         return JSONResponse(
             content={
@@ -107,7 +117,7 @@ async def _process_upload(file: UploadFile, vs: VectorStore, doc_type: str):
 @router.get("/clauses")
 async def get_clauses(
     query: str = Query("", min_length=1, max_length=100),
-    doc_type: Optional[str] = Query(None, regex="^(contracts|compliance|regulation)$"),
+    doc_type: Optional[str] = Query(None, regex="^(contracts|compliance)$"),
     limit: int = Query(10, gt=0, le=100),
     vs: VectorStore = Depends(get_vector_store)
 ):
@@ -116,7 +126,7 @@ async def get_clauses(
         # Vector search
         search_params = {
             "limit": limit,
-            "certainty": 0.65  # Tuned threshold
+            "certainty": 0.55  # Tuned threshold
         }
 
         if query:
@@ -149,51 +159,112 @@ async def get_clauses(
         logger.error(f"Search failed: {str(e)}")
         raise HTTPException(status_code=500, detail="Search operation failed")
 
-@router.post("/analyze")
-async def analyze(
-    contract_id: str = Query(..., min_length=8, max_length=36),
-    regulation_id: Optional[str] = Query(None, min_length=8, max_length=36),
-    vs: VectorStore = Depends(get_vector_store)
-):
-    """Compare contract against regulations with enhanced matching"""
-    try:
-        # Get contract clauses
-        contract_clauses = vs.client.query\
-            .get("ComplianceClause", ["text", "section"]).with_additional(["id"])\
-            .with_where({
-                "path": ["section"],
-                "operator": "Like",
-                "valueString": f"upload_{contract_id[:8]}%"
-            })\
-            .do()
+def get_rag_service():
+    return RAGService()
 
-        # Get relevant regulations
-        regulation_filter = {
+@router.post("/analyze")
+async def analyze_contract(
+    request: AnalysisRequest,
+    rag: RAGService = Depends(get_rag_service)
+):
+    """Endpoint for RAG analysis"""
+    return rag.analyze_compliance(request.contract_text)
+# async def analyze(
+#     contract_id: str = Query(..., min_length=8, max_length=36),
+#     regulation_id: Optional[str] = Query(None, min_length=8, max_length=36),
+#     vs: VectorStore = Depends(get_vector_store)
+# ):
+#     """Compare contract against regulations with enhanced matching"""
+#     try:
+#         # Get contract clauses
+#         contract_clauses = vs.client.query\
+#             .get("ComplianceClause", ["text", "section"]).with_additional(["id"])\
+#             .with_where({
+#                 "path": ["section"],
+#                 "operator": "Like",
+#                 "valueString": f"upload_{contract_id[:8]}%"
+#             })\
+#             .do()
+
+#         # Get relevant regulations
+#         regulation_filter = {
+#             "path": ["section"],
+#             "operator": "Like",
+#             "valueString": f"upload_{regulation_id[:8]}%"
+#         } if regulation_id else {
+#             "path": ["doc_type"],
+#             "operator": "Equal",
+#             "valueString": "compliance"
+#         }
+
+#         regulations = vs.client.query\
+#             .get("ComplianceClause", ["text", "doc_type"]).with_additional(["id"])\
+#             .with_where(regulation_filter)\
+#             .do()
+
+#         # Enhanced analysis - add your compliance logic here
+#         analysis = {
+#             "contract_id": contract_id,
+#             "regulation_id": regulation_id,
+#             "contract_clauses_count": len(contract_clauses["data"]["Get"]["ComplianceClause"]),
+#             "relevant_regulations_count": len(regulations["data"]["Get"]["ComplianceClause"]),
+#             "potential_issues": []  # Add your compliance check results
+#         }
+
+#         return analysis
+
+#     except Exception as e:
+#         logger.error(f"Analysis failed: {str(e)}")
+#         raise HTTPException(status_code=500, detail="Analysis failed")
+
+
+@router.post("/analyze-contract")
+async def analyze_full_contract(
+    document_id: str = Query(..., min_length=8, max_length=36),
+    vs: VectorStore = Depends(get_vector_store),
+    rag: RAGService = Depends(get_rag_service)
+):
+    try:
+        # 1. Get clauses with proper error handling
+        result = vs.client.query.get(
+            "ContractClause",
+            ["text", "section"]
+        ).with_where({
             "path": ["section"],
             "operator": "Like",
-            "valueString": f"upload_{regulation_id[:8]}%"
-        } if regulation_id else {
-            "path": ["doc_type"],
-            "operator": "Equal",
-            "valueString": "compliance"
+            "valueString": f"upload_{document_id[:8]}%"
+        }).do()
+
+        # Debug: Print raw Weaviate response
+        logging.info("Weaviate response:", result)
+
+        # Validate response structure
+        if not result.get("data", {}).get("Get", {}).get("ContractClause"):
+            raise HTTPException(
+                status_code=404,
+                detail=f"No clauses found for document {document_id}"
+            )
+
+        clauses = result["data"]["Get"]["ContractClause"]
+
+        # 2. Analyze each clause
+        results = []
+        for clause in clauses:
+            analysis = rag.analyze_compliance(clause["text"])
+            results.append({
+                "clause_text": clause["text"],
+                "section": clause.get("section", ""),
+                "analysis": analysis
+            })
+
+        return {
+            "document_id": document_id,
+            "clauses_analyzed": len(results),
+            "results": results
         }
 
-        regulations = vs.client.query\
-            .get("ComplianceClause", ["text", "doc_type"]).with_additional(["id"])\
-            .with_where(regulation_filter)\
-            .do()
-
-        # Enhanced analysis - add your compliance logic here
-        analysis = {
-            "contract_id": contract_id,
-            "regulation_id": regulation_id,
-            "contract_clauses_count": len(contract_clauses["data"]["Get"]["ComplianceClause"]),
-            "relevant_regulations_count": len(regulations["data"]["Get"]["ComplianceClause"]),
-            "potential_issues": []  # Add your compliance check results
-        }
-
-        return analysis
-
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Analysis failed: {str(e)}")
-        raise HTTPException(status_code=500, detail="Analysis failed")
+        logger.error(f"Analysis failed: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
