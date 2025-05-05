@@ -60,6 +60,7 @@ st.markdown("""
     /* Force code elements to have dark text */
     code {
         color: #1e1e1e !important;
+        background-color: #e0e0e0 !important;
     }
 
     /* === EXPANDERS AND CONTAINERS === */
@@ -67,6 +68,18 @@ st.markdown("""
     .streamlit-expanderHeader, .streamlit-expanderContent {
         background-color: #f0f0f0 !important;
         color: black !important;
+    }
+
+    /* === BUTTONS === */
+    /* Fix button text visibility */
+    .stButton button {
+        color: white !important;
+        background-color: #1f77b4 !important;
+    }
+
+    .stButton button:hover {
+        color: white !important;
+        background-color: #135f90 !important;
     }
 
     /* === CUSTOM TEXT DISPLAY === */
@@ -204,14 +217,11 @@ def display_results(results: Dict) -> None:
             with col1:
                 st.markdown('<h3 style="color: black; background-color: #f0f0f0;">📜 Contract Clause</h3>', unsafe_allow_html=True)
 
-                # Display clause text with guaranteed visibility
+                # Display clause text with guaranteed visibility - only use ONE method
                 clause_text = result.get('clause_text', 'No text available')
 
-                # Method 1: Markdown with custom class
+                # Use just the styled div to display the text (removed the code block duplicate)
                 st.markdown(f'<div class="clause-text">{clause_text}</div>', unsafe_allow_html=True)
-
-                # Method 2: Code block (always visible)
-                st.code(clause_text, language=None)
 
             with col2:
                 st.markdown('<h3 style="color: black; background-color: #f0f0f0;">📊 Analysis Results</h3>', unsafe_allow_html=True)
