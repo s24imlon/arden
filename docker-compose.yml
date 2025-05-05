@@ -37,6 +37,7 @@ services:
     volumes:
       - .:/app         # Mount the current directory to /app inside the container
       - ./data:/app/data  # Explicitly mount data folder
+      - ./temp_uploads:/app/temp_uploads
     environment:
       - PYTHONUNBUFFERED=1  # To prevent buffering in the logs
       - WEAVIATE_URL=http://weaviate:8080  # Internal DNS for service discovery
@@ -54,5 +55,26 @@ services:
       sh -c "python scripts/ingest_docs.py &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
 
+  streamlit:
+    build:
+      context: ./app/frontend
+      dockerfile: streamlit_Dockerfile
+    ports:
+      - "8501:8501"
+    depends_on:
+      - backend
+    volumes:
+      - ./app/frontend:/app
+      - ./data:/app/data
+      - ./temp_uploads:/app/temp_uploads
+    environment:
+      - BACKEND_URL=http://backend:8000
+    restart: unless-stopped
+
 volumes:
-  weaviate_data:  # Named volume declaration
+  weaviate_data:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./weaviate_data
+      o: bind

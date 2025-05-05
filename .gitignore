@@ -72,3 +72,5 @@ test_contract.docx
 
 .env
 *.env
+
+temp_uploads/
