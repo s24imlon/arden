@@ -6,6 +6,10 @@
 
 Unlike traditional rule-based compliance checkers, Arden uses modern Large Language Models (LLMs) and Retrieval-Augmented Generation (RAG) to understand the **intent** behind regulatory standards. This enables more nuanced, context-aware compliance checking that goes beyond simple keyword matching.
 
+<img width="800" alt="demo1" src="https://github.com/user-attachments/assets/3370ec1b-4a15-4031-b1b4-9bd7edd18631" />
+<img width="400" alt="demo2" src="https://github.com/user-attachments/assets/dea2a939-8f58-4ef8-a284-6eb394ae298d" />
+<img width="400" alt="demo3" src="https://github.com/user-attachments/assets/9c5a649d-0594-4f62-b4f9-6a6f80d8160d" />
+
 
 ## 📋 Installation
 
