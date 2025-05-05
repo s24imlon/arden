@@ -22,40 +22,90 @@ st.set_page_config(
     page_icon="🧠"
 )
 
-# Custom CSS with FIXED TEXT COLOR - forcing black text everywhere
+# Custom CSS with CONTROLLED BACKGROUNDS for text visibility
 st.markdown("""
 <style>
-    /* Force dark background on text areas */
+    /* === GLOBAL STYLES === */
+    /* Force light background for the entire app */
+    .main, .block-container, .stApp {
+        background-color: #f0f0f0 !important;
+    }
+
+    /* === TEXT COLOR FIXES === */
+    /* Force black text everywhere */
+    p, h1, h2, h3, h4, h5, h6, span, div, label, a, li {
+        color: black !important;
+    }
+
+    /* === TEXT AREAS AND INPUTS === */
+    /* Fix text areas */
     .stTextArea textarea {
         color: black !important;
         background-color: #e0e0e0 !important;
     }
 
-    /* Force black text on all elements */
-    p, h1, h2, h3, h4, h5, h6, span, div, textarea, .stTextArea, .stText, .stMarkdown {
-        color: black !important;
-    }
-
-    /* Ensure text inside expanders is black */
-    .streamlit-expanderHeader, .streamlit-expanderContent {
-        color: black !important;
-    }
-
-    /* Higher contrast for disabled elements */
-    textarea[disabled], textarea:disabled {
-        color: black !important;
-        background-color: #d0d0d0 !important;
-        opacity: 1 !important;
-    }
-
-    /* Ensure all st elements have black text */
-    [data-testid="stText"] *, [data-testid="stMarkdown"] *, [data-testid="stTextArea"] * {
-        color: black !important;
-    }
-
-    /* Fix for specific Streamlit components */
+    /* Fix inputs */
     .stTextInput > div > div > input {
         color: black !important;
+        background-color: #e0e0e0 !important;
+    }
+
+    /* === MARKDOWN AND TEXT ELEMENTS === */
+    /* Ensure markdown has black text */
+    .stMarkdown {
+        color: black !important;
+        background-color: #f0f0f0 !important;
+    }
+
+    /* Force code elements to have dark text */
+    code {
+        color: #1e1e1e !important;
+    }
+
+    /* === EXPANDERS AND CONTAINERS === */
+    /* Force expander background */
+    .streamlit-expanderHeader, .streamlit-expanderContent {
+        background-color: #f0f0f0 !important;
+        color: black !important;
+    }
+
+    /* === CUSTOM TEXT DISPLAY === */
+    /* Our custom clause text display */
+    .clause-text {
+        color: black !important;
+        background-color: #e0e0e0 !important;
+        padding: 10px;
+        border-radius: 5px;
+        margin: 10px 0;
+        font-family: monospace;
+        white-space: pre-wrap;
+    }
+
+    /* Contract analysis section */
+    .analysis-section {
+        background-color: #f5f5f5 !important;
+        padding: 10px;
+        border-radius: 5px;
+        border-left: 4px solid #4CAF50;
+        margin: 10px 0;
+    }
+
+    /* Style for violations */
+    .violation-item {
+        background-color: #fff0f0 !important;
+        padding: 8px;
+        margin: 5px 0;
+        border-left: 3px solid #f44336;
+        border-radius: 3px;
+    }
+
+    /* Style for required changes */
+    .change-item {
+        background-color: #e8f4fd !important;
+        padding: 8px;
+        margin: 5px 0;
+        border-left: 3px solid #2196F3;
+        border-radius: 3px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -149,35 +199,23 @@ def display_results(results: Dict) -> None:
     # Display each result
     for i, result in enumerate(results["results"]):
         with st.expander(f"🔍 Clause Analysis #{i+1}", expanded=True):
-            # Force contrast for text
-            st.markdown("""
-            <style>
-            .clause-text {
-                color: black !important;
-                background-color: #e0e0e0 !important;
-                padding: 10px;
-                border-radius: 5px;
-            }
-            </style>
-            """, unsafe_allow_html=True)
-
             col1, col2 = st.columns([1, 1])
 
             with col1:
-                st.subheader("📜 Contract Clause")
-                # Use a div with custom class and style for better visibility
+                st.markdown('<h3 style="color: black; background-color: #f0f0f0;">📜 Contract Clause</h3>', unsafe_allow_html=True)
+
+                # Display clause text with guaranteed visibility
                 clause_text = result.get('clause_text', 'No text available')
+
+                # Method 1: Markdown with custom class
                 st.markdown(f'<div class="clause-text">{clause_text}</div>', unsafe_allow_html=True)
 
-                # Add a backup text area with forced styling
-                st.text_area(
-                    label="Contract Text (Backup View)",
-                    value=clause_text,
-                    height=200,
-                    key=f"clause_text_{i}"
-                )
+                # Method 2: Code block (always visible)
+                st.code(clause_text, language=None)
 
             with col2:
+                st.markdown('<h3 style="color: black; background-color: #f0f0f0;">📊 Analysis Results</h3>', unsafe_allow_html=True)
+
                 # NEW: Handle the NESTED structure based on your raw response
                 analysis_data = result.get("analysis", {})
 
@@ -194,33 +232,33 @@ def display_results(results: Dict) -> None:
 
                 # Display status with appropriate color
                 if compliance_status.lower() == "compliant":
-                    st.success(f"✅ Status: {compliance_status}")
+                    st.markdown('<div style="background-color: #dff0d8; color: black; padding: 10px; border-radius: 5px; border-left: 4px solid #5cb85c;">✅ <b>Status:</b> Compliant</div>', unsafe_allow_html=True)
                 elif compliance_status.lower() == "non-compliant":
-                    st.error(f"❌ Status: {compliance_status}")
+                    st.markdown('<div style="background-color: #f2dede; color: black; padding: 10px; border-radius: 5px; border-left: 4px solid #d9534f;">❌ <b>Status:</b> Non-Compliant</div>', unsafe_allow_html=True)
                 else:
-                    st.warning(f"⚠️ Status: {compliance_status}")
+                    st.markdown('<div style="background-color: #fcf8e3; color: black; padding: 10px; border-radius: 5px; border-left: 4px solid #f0ad4e;">⚠️ <b>Status:</b> Unknown</div>', unsafe_allow_html=True)
 
                 # Extract matched regulations if present
                 if isinstance(analysis_data, dict) and "matched_regulations" in analysis_data:
-                    st.subheader("📋 Matched Regulations")
+                    st.markdown('<h4 style="color: black; background-color: #f0f0f0; margin-top: 20px;">📋 Matched Regulations</h4>', unsafe_allow_html=True)
                     for regulation in analysis_data["matched_regulations"]:
-                        st.markdown(f"- {regulation}")
+                        st.markdown(f'<div style="background-color: #f5f5f5; color: black; padding: 8px; margin: 5px 0; border-radius: 3px;">• {regulation}</div>', unsafe_allow_html=True)
 
                 # Extract violations
                 if isinstance(actual_analysis, dict) and "violated_articles" in actual_analysis:
-                    st.subheader("🚨 Violated Regulations")
+                    st.markdown('<h4 style="color: black; background-color: #f0f0f0; margin-top: 20px;">🚨 Violated Regulations</h4>', unsafe_allow_html=True)
                     for violation in actual_analysis["violated_articles"]:
-                        st.markdown(f"- {violation}")
+                        st.markdown(f'<div class="violation-item">• {violation}</div>', unsafe_allow_html=True)
 
                 # Extract required changes
                 if isinstance(actual_analysis, dict) and "required_changes" in actual_analysis:
-                    st.subheader("🔧 Required Changes")
+                    st.markdown('<h4 style="color: black; background-color: #f0f0f0; margin-top: 20px;">🔧 Required Changes</h4>', unsafe_allow_html=True)
                     for change in actual_analysis["required_changes"]:
-                        st.markdown(f"- {change}")
+                        st.markdown(f'<div class="change-item">• {change}</div>', unsafe_allow_html=True)
 
 def main():
-    st.title("🧠 Arden : AI-Powered Contract Watchdog")
-    st.markdown("Upload contracts to check regulatory compliance")
+    st.markdown('<h1 style="color: black; background-color: #f0f0f0;">🧠 Arden : AI-Powered Contract Watchdog</h1>', unsafe_allow_html=True)
+    st.markdown('<p style="color: black; background-color: #f0f0f0;">Upload contracts to check regulatory compliance</p>', unsafe_allow_html=True)
 
     uploaded_file = st.file_uploader(
         label="Upload Document",
@@ -230,10 +268,10 @@ def main():
     )
 
     if uploaded_file:
-        st.success(f"Uploaded: {uploaded_file.name}")
+        st.markdown(f'<div style="background-color: #d4edda; color: black; padding: 10px; border-radius: 5px; margin: 10px 0;">✅ Uploaded: {uploaded_file.name}</div>', unsafe_allow_html=True)
 
         # Display file info
-        st.info(f"File type: {uploaded_file.type}, Size: {uploaded_file.size/1024:.2f} KB")
+        st.markdown(f'<div style="background-color: #d1ecf1; color: black; padding: 10px; border-radius: 5px; margin: 10px 0;">ℹ️ File type: {uploaded_file.type}, Size: {uploaded_file.size/1024:.2f} KB</div>', unsafe_allow_html=True)
 
         analyze_button = st.button("Analyze Document", key="analyze_file", use_container_width=True)
 
@@ -243,28 +281,28 @@ def main():
             results_container = st.container()
 
             # Step 1: Upload the file
-            status_placeholder.info("Step 1/2: Uploading document...")
+            status_placeholder.markdown('<div style="background-color: #d1ecf1; color: black; padding: 10px; border-radius: 5px;">Step 1/2: Uploading document...</div>', unsafe_allow_html=True)
             upload_result = upload_file_to_backend(uploaded_file)
 
             if "error" in upload_result:
-                status_placeholder.error(f"Upload failed: {upload_result['error']}")
+                status_placeholder.markdown(f'<div style="background-color: #f8d7da; color: black; padding: 10px; border-radius: 5px;">❌ Upload failed: {upload_result["error"]}</div>', unsafe_allow_html=True)
             else:
                 doc_id = upload_result.get("document_id")
-                status_placeholder.success(f"✅ Document uploaded successfully (ID: {doc_id})")
+                status_placeholder.markdown(f'<div style="background-color: #d4edda; color: black; padding: 10px; border-radius: 5px;">✅ Document uploaded successfully (ID: {doc_id})</div>', unsafe_allow_html=True)
 
                 # Step 2: Analyze the document
-                status_placeholder.info("Step 2/2: Analyzing content...")
+                status_placeholder.markdown('<div style="background-color: #d1ecf1; color: black; padding: 10px; border-radius: 5px;">Step 2/2: Analyzing content...</div>', unsafe_allow_html=True)
                 analysis_results = analyze_contract(doc_id)
 
                 # Clear status and show results
                 status_placeholder.empty()
 
                 with results_container:
-                    st.header("📊 Analysis Results")
+                    st.markdown('<h2 style="color: black; background-color: #f0f0f0;">🧠 Analysis Results</h2>', unsafe_allow_html=True)
                     if "error" in analysis_results:
-                        st.error(f"Analysis failed: {analysis_results['error']}")
+                        st.markdown(f'<div style="background-color: #f8d7da; color: black; padding: 10px; border-radius: 5px;">❌ Analysis failed: {analysis_results["error"]}</div>', unsafe_allow_html=True)
                     else:
-                        st.success("Analysis completed successfully!")
+                        st.markdown('<div style="background-color: #d4edda; color: black; padding: 10px; border-radius: 5px; margin-bottom: 20px;">✅ Analysis completed successfully!</div>', unsafe_allow_html=True)
                         display_results(analysis_results)
 
 if __name__ == "__main__":
